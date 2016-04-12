@@ -1,0 +1,555 @@
+Script started on Fri 10 Apr 2015 11:17:35 PM EDT
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[?1034h[finnegan_nd@cobra Prog3]$ cat -n zip.cpp
+     1	#include <sstream>
+     2	#include "huffman.h"
+     3	#include <iostream>
+     4	#include <stdio.h>
+     5	#include <fstream>
+     6	using namespace std;
+     7	
+     8	
+     9	const int NumLetters = 256;
+    10	int set[NumLetters]; 
+    11	string setCodes[NumLetters];
+    12	int numberOfChars;
+    13	string buildData(HuffmanTree input);
+    14	string createTable();
+    15	vector<char> fileSequence;
+    16	double compressedSize;
+    17	double originalSize;
+    18	double ratio;
+    19	
+    20	int main(int argc, char *argv[])
+    21	{
+    22		cout << endl << endl;
+    23	    for (int i = 1; i < argc; i++)
+    24	    {
+    25		    char ch;
+    26	    	ifstream infile(argv[i]);
+    27	    	string outfileName = "" + (string) argv[i] + ".zip";
+    28		    ofstream outfile(outfileName.c_str());
+    29	
+    30		    //Initializes all character slots to 0 in array.
+    31			for (char ch = char(0);  ch <= char(126);  ch++)
+    32				set[ch] = 0;
+    33			//Increments the slots of the characters that are encountered in the file.
+    34			if(infile.good())
+    35			{
+    36				while (infile.get(ch))
+    37				{
+    38					fileSequence.push_back(ch);
+    39					set[ch] += 1;
+    40				}	
+    41	
+    42				//Declare tree
+    43				HuffmanTree tree;
+    44				//Insert nodes for each character (category) present in the file
+    45				//into the Huffman tree.
+    46				for (char ch = char(0); ch <= char(126); ch++)
+    47				{
+    48					if (set[ch] > 0)
+    49					{
+    50						tree.insert(ch, set[ch]);
+    51						numberOfChars++;
+    52					}
+    53				}
+    54				//Build tree
+    55				tree.build();
+    56				/*
+    57				Obtains the codes for each of the characters and inserts them
+    58				into the setCodes array.
+    59				In the case of there being only one category, a value of zero
+    60				is given as the code.
+    61				*/
+    62				for (char ch = char(0); ch <= char(126); ch++)
+    63				{
+    64					if (numberOfChars > 1)
+    65					{
+    66						if (set[ch] > 0)
+    67							setCodes[ch] = tree.GetCode(ch);
+    68					}
+    69					else
+    70					{
+    71						if (set[ch] > 0)
+    72							setCodes[ch] = "0";
+    73					}	
+    74				}
+    75	
+    76				cout << "PRINTING TABLE FOR FILE: " << "\"" << (string) argv[i] << "\"" << endl << endl;
+    77				tree.PrintTable();
+    78	
+    79				/*
+    80				Goes through each character and calculates the compressed size
+    81				for each and adds it to the compressedSize variable.
+    82				*/
+    83				for (char ch = char(0); ch <= char(126); ch++)
+    84				{
+    85					if (set[ch] > 0)
+    86					{
+    87						compressedSize += set[ch]*setCodes[ch].length();
+    88					}
+    89				}
+    90				originalSize = fileSequence.size()*8;
+    91				ratio = 1 - ((compressedSize)/(originalSize));
+    92	
+    93				cout << "Compressed size: " << compressedSize << " bits    Original size: " << originalSize << " bits" << endl;
+    94				printf("File successfully compressed to %.0f bits (%0.2f%% Less)", compressedSize, ratio);
+    95				cout << endl << endl << endl;
+    96	
+    97				/*
+    98				Creates strings for the ASCII value and codes, as well as the code sequence.
+    99				Both strings are added and sent to the output file.
+   100				*/
+   101				string tableData = buildData(tree);
+   102				string compressedInfo = createTable();
+   103				string finalOutput = tableData + compressedInfo;
+   104				outfile << finalOutput;
+   105				cout << endl;
+   106				/*
+   107				All variables are intialized back to 0 and emptied.
+   108				*/
+   109				fileSequence.erase(fileSequence.begin(), fileSequence.end());
+   110				numberOfChars = 0;
+   111				compressedSize = 0;
+   112				originalSize = 0;
+   113				ratio = 0;
+   114				for (char ch = char(0); ch <= char(126); ch++)
+   115				{
+   116					set[ch] = 0;
+   117					setCodes[ch] = "0";
+   118				}
+   119				infile.close();	
+   120			}
+   121			else
+   122			{
+   123				cout << endl << "The file \"" + (string) argv[i] + "\" is empty or cannot be found." << endl << endl;
+   124			}
+   125	    }
+   126	}
+   127	
+   128	/*
+   129	Creates the string for the ASCII value and corresponding code.
+   130	*/
+   131	string buildData(HuffmanTree input)
+   132	{
+   133		stringstream stream;
+   134		stream << numberOfChars;
+   135		string character = stream.str();
+   136		string output = "" + character + "\n";
+   137	
+   138		for (char ch = char(0); ch <= char(126); ch++)
+   139			{
+   140				if (set[ch] > 0)
+   141				{
+   142					stream.str("");
+   143					stream << (int)ch;
+   144					string name = stream.str();
+   145					output +=  name + " " + setCodes[ch] + "\n";
+   146				}
+   147			}
+   148			return output;
+   149	}
+   150	
+   151	/*
+   152	Creates the string for the code segment for the input.
+   153	*/
+   154	string createTable()
+   155	{
+   156		string output;
+   157		int i = 0;
+   158		while (i < fileSequence.size())
+   159		{
+   160			char ch = fileSequence.at(i);
+   161			output += setCodes[ch];
+   162			i++;
+   163		}
+   164		return output;
+   165	}]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ cat huffman.h
+#include <vector>
+#include <string>
+using namespace std;
+
+struct HNode {
+    char ch;
+    int weight;
+    int parent;
+    int childType;
+};
+
+class HuffmanTree {
+    public:
+	HuffmanTree();				// constructor
+
+	void insert(char ch, int weight);	// inserts a character and its associated weight
+						// into a node of the Huffman tree
+
+	bool inTree(char ch);			// returns a boolean value indicating whether
+						// a given character is stored in the tree
+		
+	int GetFrequency(char ch);		// returns the weight of a given character
+
+	
+	void build();				// Builds the Huffman Tree;
+	
+
+	string GetCode(char ch);		// returns the compressed code of a given
+						// character in the tree using recursion
+
+	void PrintTable();			// displays the Huffman encoding table used in
+						// the compression process
+	
+	int numNodes();				// returns the number of nodes currently in Huffman 
+						// tree
+	int firstSmallest(); //Find smallest node
+	int secondSmallest(int locationOfFirst); //Find second smallest node after the first has been chosen
+	void mergeNodes();
+	int firstComparator();
+    private:
+	vector<HNode> nodes;
+	int current_max;
+	int numChars;
+	bool built;                             
+	int lookUp(char ch);			// returns the index of a given character in tree
+	int lookUp(HNode *input);
+	int GetFrequency(int i);		// returns the weight at a given index
+	string GetCode(int i);			// returns the compressed code of the character at 
+						// a given index
+};
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ cat huffman.cpp
+#include "huffman.h"
+#include <iostream>
+#include <cstdio>
+#include <string>
+#include <sstream>
+using namespace std;
+
+
+HuffmanTree:: HuffmanTree()
+	: numChars(0), built(false) {}
+
+void HuffmanTree:: insert(char ch, int weight) {
+    HNode newNode = {ch, weight, -1, -1}; 
+    built = false;
+    nodes.push_back(newNode);
+    numChars++;
+    if (current_max < weight)
+    	current_max = weight;
+}
+
+bool HuffmanTree:: inTree(char ch) {
+	int i = 0;
+	while(i <= nodes.size()-1)
+	{
+		if(nodes.at(i).ch == ch)
+			return true;
+		else
+			i++;
+	}
+	return false;
+}
+
+int HuffmanTree:: GetFrequency(char ch) {
+	int i = 0;
+	while(i <= nodes.size()-1)
+	{
+		if(nodes.at(i).ch == ch)
+			return nodes.at(i).weight;
+		else
+			i++;
+	}
+	return -1;
+}
+
+int HuffmanTree:: GetFrequency(int i) {
+
+	if (i <= nodes.size()-1)
+		return nodes.at(i).weight;
+	else
+		return -1;
+}
+
+int HuffmanTree:: lookUp(char ch) {
+	int i = 0;
+	while(i <= nodes.size()-1)
+	{
+		if (nodes.at(i).ch == ch)
+			return i;
+		else
+			i++;
+	}
+	return -1;
+}
+
+int HuffmanTree:: lookUp(HNode *input) {
+	int i = 0;
+	while(i <= nodes.size()-1)
+	{
+		HNode *value = &(nodes.at(i));
+		if (value == input)
+			return i;
+		else
+			i++;
+	}
+	return -1;
+}
+
+
+string HuffmanTree:: GetCode(char ch) {
+	int index = lookUp(ch);
+	if(index != -1)
+		return GetCode(index);
+	else
+		return ("Character is not included in this set.");
+
+}
+
+
+string HuffmanTree:: GetCode(int i) {
+	if(nodes.at(i).parent == -1)
+		return "";
+	else
+		return (GetCode(nodes.at(i).parent) + (char)(nodes.at(i).childType + '0'));
+}
+
+void HuffmanTree:: PrintTable() {
+	int i = 0;
+	int treeNum = 1;
+	printf("%23s %26s %21s", "", "++++  ENCODING TABLE  ++++", "" );
+	cout << endl;
+	printf("%21s %16s %16s %16s ", "Character", "Weight", "Parent", "Child Type");
+	cout << endl;
+	while (i < nodes.size())
+	{
+		if (nodes.at(i).ch == '\0')
+		{
+			stringstream treeNumber;
+			treeNumber << 'T' << treeNum;
+			string name = treeNumber.str();
+			printf("%5u %12s %16d %17d %14d", i, name.c_str(), nodes.at(i).weight, nodes.at(i).parent, nodes.at(i).childType);
+			cout << endl;
+			i++;
+			treeNum++;
+		}
+		else
+		{
+			if (nodes.at(i).ch == 10)
+				printf("%5u %12s %16d %17d %14d", i, "nl", nodes.at(i).weight, nodes.at(i).parent, nodes.at(i).childType);
+			else if(nodes.at(i).ch == 32)
+				printf("%5u %12s %16d %17d %14d", i, "sp", nodes.at(i).weight, nodes.at(i).parent, nodes.at(i).childType);
+			else
+				printf("%5u %12c %16d %17d %14d", i, nodes.at(i).ch, nodes.at(i).weight, nodes.at(i).parent, nodes.at(i).childType);
+			cout << endl;
+			i++;
+
+		}
+	}
+}
+
+
+int HuffmanTree:: numNodes() {
+	return nodes.size();
+}
+
+
+void HuffmanTree:: build() {
+	//Copy main vector
+	int totalFrequency = 0;
+	int treeNum = 1;
+
+	//Count total frequency of all characters in file
+	for (int i = 0; i <= nodes.size() - 1; i++)
+		totalFrequency += nodes.at(i).weight;
+
+	//Repeat until last entry's weight equals the total frequency (last node has been made).
+	while (nodes.at(nodes.size()-1).weight != totalFrequency)
+	{
+		mergeNodes();
+		treeNum++;
+	}
+}
+
+void HuffmanTree:: mergeNodes()
+{
+	char name = '\0';
+	//Find first smallest
+	int i, j = 0;
+	int index1, index2;
+	int currentWeight = current_max;
+	for (i = 0; i <= nodes.size() - 1; i++)
+	{
+		if ((nodes.at(i).weight < currentWeight) && (nodes.at(i).parent == -1))
+		{
+			index1 = i;
+			currentWeight = nodes.at(i).weight;
+		}
+	}
+
+	currentWeight = current_max;
+	for (j = 0; j <= nodes.size() - 1; j++)
+	{
+		if ((nodes.at(j).weight < currentWeight) && (nodes.at(j).parent == -1) && (j != index1))
+		{
+			index2 = j;
+			currentWeight = nodes.at(j).weight;
+		}
+	}
+
+	int newNodeWeight = nodes.at(index1).weight + nodes.at(index2).weight;
+	insert('\0', newNodeWeight);
+	if (lookUp(&(nodes.at(index1))) < lookUp(&(nodes.at(index2))))
+	{
+		nodes.at(index1).childType = 1;
+		nodes.at(index2).childType = 0;
+	}
+	else
+	{
+		nodes.at(index1).childType = 0;
+		nodes.at(index2).childType = 1;
+	}
+	nodes.at(index1).parent = nodes.size()-1;
+	nodes.at(index2).parent = nodes.size()-1;
+}
+
+
+
+
+
+
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ c++ zipcpp [K[K[K[K.zpp[K[K[Kxpp[K[K[Kcpp huffman.o
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ mv a.out myZip
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ c++ unzip.cpp
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ mv a.out myUnzip
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ cat test
+This is a sample file. I think a haiku should go here.
+
+stubborn line of code
+why must you mock me with crash
+we will see who's boss
+
+!@#$%^&*()+=-
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ cat test1
+aaaaa]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ ./myZip test1[K test1 test6
+
+
+PRINTING TABLE FOR FILE: "test"
+
+                        ++++  ENCODING TABLE  ++++                      
+            Character           Weight           Parent       Child Type 
+    0           nl                7                65              1
+    1           sp               24                75              1
+    2            !                1                40              1
+    3            #                1                40              0
+    4            $                1                41              1
+    5            %                1                41              0
+    6            &                1                42              1
+    7            '                1                42              0
+    8            (                1                43              1
+    9            )                1                43              0
+   10            *                1                44              1
+   11            +                1                44              0
+   12            -                1                45              1
+   13            .                2                49              1
+   14            =                1                45              0
+   15            @                1                46              1
+   16            I                1                46              0
+   17            T                1                47              1
+   18            ^                1                47              0
+   19            a                5                62              1
+   20            b                3                55              1
+   21            c                3                56              1
+   22            d                2                49              0
+   23            e               10                69              1
+   24            f                2                50              1
+   25            g                1                48              1
+   26            h                9                68              1
+   27            i                8                66              1
+   28            k                3                56              0
+   29            l                6                64              1
+   30            m                4                58              1
+   31            n                3                57              1
+   32            o                9                69              0
+   33            p                1                48              0
+   34            r                3                57              0
+   35            s               11                71              1
+   36            t                4                58              0
+   37            u                5                62              0
+   38            w                5                63              1
+   39            y                2                50              0
+   40           T1                2                51              1
+   41           T2                2                51              0
+   42           T3                2                52              1
+   43           T4                2                52              0
+   44           T5                2                53              1
+   45           T6                2                53              0
+   46           T7                2                54              1
+   47           T8                2                54              0
+   48           T9                2                55              0
+   49          T10                4                59              1
+   50          T11                4                59              0
+   51          T12                4                60              1
+   52          T13                4                60              0
+   53          T14                4                61              1
+   54          T15                4                61              0
+   55          T16                5                63              0
+   56          T17                6                64              0
+   57          T18                6                65              0
+   58          T19                8                66              0
+   59          T20                8                67              1
+   60          T21                8                67              0
+   61          T22                8                68              0
+   62          T23               10                70              1
+   63          T24               10                70              0
+   64          T25               12                71              0
+   65          T26               13                72              1
+   66          T27               16                72              0
+   67          T28               16                73              1
+   68          T29               17                73              0
+   69          T30               19                74              1
+   70          T31               20                74              0
+   71          T32               23                75              0
+   72          T33               29                76              1
+   73          T34               33                76              0
+   74          T35               39                77              1
+   75          T36               47                77              0
+   76          T37               62                78              1
+   77          T38               86                78              0
+   78          T39              148                -1             -1
+Compressed size: 691 bits    Original size: 1184 bits
+File successfully compressed to 691 bits (0.42% Less)
+
+
+
+PRINTING TABLE FOR FILE: "test1"
+
+                        ++++  ENCODING TABLE  ++++                      
+            Character           Weight           Parent       Child Type 
+    0            a                5                -1             -1
+Compressed size: 5 bits    Original size: 40 bits
+File successfully compressed to 5 bits (0.88% Less)
+
+
+
+
+The file "test6" is empty or cannot be found.
+
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ ./myUnzip test.zip teset1[K[K[Kt1.zip test6[K
+
+File "test.zip" Succesfully Inflated Back to Original
+
+
+File "test1.zip" Succesfully Inflated Back to Original
+
+The file "test" is empty or cannot be found.
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ cat test
+This is a sample file. I think a haiku should go here.
+
+stubborn line of code
+why must you mock me with crash
+we will see who's boss
+
+!@#$%^&*()+=-
+]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ cat test1
+aaaaa]0;finnegan_nd@cobra:~/csc245/Progs/Prog3[finnegan_nd@cobra Prog3]$ exit
+exit
+
+Script done on Fri 10 Apr 2015 11:19:09 PM EDT
